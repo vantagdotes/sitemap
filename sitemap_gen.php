@@ -28,6 +28,8 @@ function vantag_sitemapgen_menu() {
 add_action('admin_menu', 'vantag_sitemapgen_menu');
 
 function vantag_sitemapgen_page() {
+    
+    //Si se pulsa el boton, generar sitemap.xml en la raiz del proyecto
     if (isset($_POST['generate_sitemap'])) {
         vantag_generate_sitemap();
         echo '<div class="updated"><p>Sitemap generado exitosamente. <a href="' . home_url('/sitemap.xml') . '" target="_blank">Ver Sitemap</a></p></div>';
@@ -35,29 +37,33 @@ function vantag_sitemapgen_page() {
     ?>
     <div class="wrap">
         <h1>Generador de Sitemap</h1>
+
+        <!--generar sitemap-->
         <form method="post">
             <p>Haz clic en el botón para generar el sitemap.</p>
             <p><input type="submit" name="generate_sitemap" class="button button-primary" value="Generar Sitemap"></p>
         </form>
     </div>
     <?php
+
+    // Si la web tiene sitemap, mostrarlo por pantalla
     $sitemap_path = ABSPATH . 'sitemap.xml';
     if (file_exists($sitemap_path)) {
         $xml = simplexml_load_file($sitemap_path);
-        echo '<h2>Contenido del Sitemap</h2>';
+        echo '<h2>Sitemap</h2>';
         echo '<table class="widefat fixed" cellspacing="0">';
         echo '<thead><tr><th>URL</th><th>Fecha de Modificación</th></tr></thead>';
         echo '<tbody>';
         foreach ($xml->url as $url) {
             echo '<tr>';
-            echo '<td>' . esc_html($url->loc) . '</td>';
-            echo '<td>' . esc_html($url->lastmod) . '</td>';
+            echo '<td><a href="' . esc_url($url->loc) . '" target="_blank">' . esc_html($url->loc) . '</a></td>';
+            echo '<td>' . esc_html( gmdate( 'H:i | d-m-Y' ) ) . '</td>';
             echo '</tr>';
         }
         echo '</tbody>';
         echo '</table>';
     } else {
-        echo '<p>No se encontró un sitemap existente. Por favor, genera uno nuevo.</p>';
+        echo '<p>No se encontró un sitemap existente. Por favor, genera uno nuevo.</p>'; // Si no tiene sitemap
     }
 }
 
@@ -65,20 +71,23 @@ function vantag_generate_sitemap() {
     $posts = get_posts(array(
         'numberposts' => -1,
         'post_type' => array('post', 'page'),
-        'post_status' => 'publish',
-        'meta_query' => array(
-            array(
-                'key' => '_noindex',
-                'compare' => 'NOT EXISTS'
-            )
-        )
+        'post_status' => 'publish'
     ));
 
     $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
 
     foreach ($posts as $post) {
-        $noindex = get_post_meta($post->ID, '_noindex', true);
-        if ($noindex) {
+        $post_content = get_post_field('post_content', $post->ID);
+        if (strpos($post_content, 'noindex') !== false) { // Verifica si el post tiene la meta etiqueta noindex
+            continue;
+        }
+
+        // noindex con los plugins SEO mas usados
+        $yoast_noindex = get_post_meta($post->ID, '_yoast_wpseo_meta-robots-noindex', true);
+        $aioseo_noindex = get_post_meta($post->ID, '_aioseo_noindex', true);
+        $rankmath_noindex = get_post_meta($post->ID, 'rank_math_robots', true);
+
+        if ($yoast_noindex == '1' || $aioseo_noindex == '1' || $rankmath_noindex == '1') {
             continue;
         }
 
