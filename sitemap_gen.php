@@ -74,6 +74,44 @@ function vantag_sitemapgen_page() {
     }
 }
 
+function blocked_robotstxt($url) {
+    $robots_txt_url = home_url('/robots.txt');
+    $robots_txt = wp_remote_get($robots_txt_url);
+    if (is_wp_error($robots_txt)) {
+        return false; // No se pudo obtener el archivo robots.txt
+    }
+
+    $robots_txt_body = wp_remote_retrieve_body($robots_txt);
+    $parsed_url = parse_url($url);
+    $path = isset($parsed_url['path']) ? $parsed_url['path'] : '';
+
+    $lines = explode("\n", $robots_txt_body);
+    $user_agent = '*'; // Las reglas aplican para todos los useragents
+
+    $disallow_paths = [];
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (stripos($line, 'User-agent:') === 0) {
+            $user_agent = trim(substr($line, 11));
+        }
+        if (stripos($line, 'Disallow:') === 0 && $user_agent === '*') {
+            $disallow_path = trim(substr($line, 9));
+            if ($disallow_path) {
+                $disallow_paths[] = $disallow_path;
+            }
+        }
+    }
+
+    foreach ($disallow_paths as $disallow_path) {
+        if (stripos($path, $disallow_path) === 0) {
+            return true; // La URL está bloqueada por robots.txt
+        }
+    }
+
+    return false; // La URL no está bloqueada
+}
+
+
 function vantag_generate_sitemap() {
     // Obtener todos los CPT públicos
     $args = array(
@@ -110,8 +148,14 @@ function vantag_generate_sitemap() {
             continue;
         }
 
+        // Verificar si la URL está bloqueada por robots.txt
+        $post_url = get_permalink($post->ID);
+        if (blocked_robotstxt($post_url)) {
+            continue;
+        }
+
         $url = $xml->addChild('url');
-        $url->addChild('loc', get_permalink($post->ID));
+        $url->addChild('loc', $post_url);
         $url->addChild('lastmod', get_the_modified_time('c', $post->ID));
     }
 
