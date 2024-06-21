@@ -2,10 +2,10 @@
 /*
  * Plugin Name:       Multilingual Sitemap generator
  * Plugin URI:        https://github.com/vantagdotes/
- * Description:       This is a simple WordPress plugin that generates a multilingual sitemap for your website.
+ * Description:       Multilingual Sitemap generator, which solves the problems of Yoast SEO compatibility plugins with Loco Translate, WPML, Polylang, etc.
  * Version:           1.0
  * Requires at least: 6.3
- * Requires PHP:      7.3
+ * Requires PHP:      7.4
  * Author:            VANTAG.es
  * Author URI:        https://vantag.es
  * License:           GPL v3 or later
@@ -31,8 +31,14 @@ function vantag_sitemapgen_page() {
     
     //Si se pulsa el boton, generar sitemap.xml en la raiz del proyecto
     if (isset($_POST['generate_sitemap'])) {
+    
+        // Verificar nonce
+    if ( !isset($_POST['generate_sitemap_nonce_field']) || !wp_verify_nonce($_POST['generate_sitemap_nonce_field'], 'generate_sitemap_nonce') ) {
+        die('Error de seguridad. Por favor, vuelve e intenta de nuevo.');
+    }
+
         vantag_generate_sitemap();
-        echo '<div class="updated"><p>Sitemap generado exitosamente. <a href="' . home_url('/sitemap.xml') . '" target="_blank">Ver Sitemap</a></p></div>';
+        echo '<div class="updated"><p>Sitemap generado exitosamente. <a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank">Ver Sitemap</a></p></div>';
     }
     ?>
     <div class="wrap">
@@ -40,6 +46,7 @@ function vantag_sitemapgen_page() {
 
         <!--generar sitemap-->
         <form method="post">
+            <?php wp_nonce_field('generate_sitemap_nonce', 'generate_sitemap_nonce_field'); ?>
             <p>Haz clic en el botón para generar el sitemap.</p>
             <p><input type="submit" name="generate_sitemap" class="button button-primary" value="Generar Sitemap"></p>
         </form>
