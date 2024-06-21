@@ -34,21 +34,21 @@ function vantag_sitemapgen_page() {
     
         // Verificar nonce
     if ( !isset($_POST['generate_sitemap_nonce_field']) || !wp_verify_nonce($_POST['generate_sitemap_nonce_field'], 'generate_sitemap_nonce') ) {
-        die('Error de seguridad. Por favor, vuelve e intenta de nuevo.');
+        die('Security error. Please go back and try again.');
     }
 
         vantag_generate_sitemap();
-        echo '<div class="updated"><p>Sitemap generado exitosamente. <a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank">Ver Sitemap</a></p></div>';
+        echo '<div class="updated"><p>Sitemap successfully generated.<a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank">View sitemap</a></p></div>';
     }
     ?>
     <div class="wrap">
-        <h1>Generador de Sitemap</h1>
+        <h1>Sitemap Generator</h1>
 
         <!--generar sitemap-->
         <form method="post">
             <?php wp_nonce_field('generate_sitemap_nonce', 'generate_sitemap_nonce_field'); ?>
-            <p>Haz clic en el botón para generar el sitemap.</p>
-            <p><input type="submit" name="generate_sitemap" class="button button-primary" value="Generar Sitemap"></p>
+            <p>Click the button to generate the sitemap.</p>
+            <p><input type="submit" name="generate_sitemap" class="button button-primary" value="Generate sitemap"></p>
         </form>
     </div>
     <?php
@@ -59,7 +59,7 @@ function vantag_sitemapgen_page() {
         $xml = simplexml_load_file($sitemap_path);
         echo '<h2>Sitemap</h2>';
         echo '<table class="widefat fixed" cellspacing="0">';
-        echo '<thead><tr><th>URL</th><th>Fecha de Modificación</th></tr></thead>';
+        echo '<thead><tr><th>URL</th><th>Date of modification</th></tr></thead>';
         echo '<tbody>';
         foreach ($xml->url as $url) {
             echo '<tr>';
@@ -70,7 +70,7 @@ function vantag_sitemapgen_page() {
         echo '</tbody>';
         echo '</table>';
     } else {
-        echo '<p>No se encontró un sitemap existente. Por favor, genera uno nuevo.</p>'; // Si no tiene sitemap
+        echo '<p>An existing Sitemap was not found. Please generate a new one.</p>'; // Si no tiene sitemap
     }
 }
 
