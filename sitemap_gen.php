@@ -1,8 +1,8 @@
 <?php
 /*
  * Plugin Name:       Multilingual Sitemap generator
- * Plugin URI:        https://github.com/vantagdotes/sitemap
- * Description:       Multilingual Sitemap generator, which solves the problems of Yoast SEO compatibility plugins with Loco Translate, WPML, Polylang, etc.
+ * Plugin URI:        https://github.com/vantagdotes/
+ * Description:       This is a simple WordPress plugin that generates a multilingual sitemap for your website.
  * Version:           1.0
  * Requires at least: 6.3
  * Requires PHP:      7.3
@@ -65,12 +65,23 @@ function vantag_generate_sitemap() {
     $posts = get_posts(array(
         'numberposts' => -1,
         'post_type' => array('post', 'page'),
-        'post_status' => 'publish'
+        'post_status' => 'publish',
+        'meta_query' => array(
+            array(
+                'key' => '_noindex',
+                'compare' => 'NOT EXISTS'
+            )
+        )
     ));
 
     $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
 
     foreach ($posts as $post) {
+        $noindex = get_post_meta($post->ID, '_noindex', true);
+        if ($noindex) {
+            continue;
+        }
+
         $url = $xml->addChild('url');
         $url->addChild('loc', get_permalink($post->ID));
         $url->addChild('lastmod', get_the_modified_time('c', $post->ID));
