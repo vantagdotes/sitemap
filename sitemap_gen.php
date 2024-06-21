@@ -75,21 +75,33 @@ function vantag_sitemapgen_page() {
 }
 
 function vantag_generate_sitemap() {
+    // Obtener todos los CPT públicos
+    $args = array(
+        'public'   => true,
+        '_builtin' => false
+    );
+    $custom_post_types = get_post_types($args, 'names', 'and');
+
+    // Añadir 'post' y 'page'
+    $post_types = array_merge(array('post', 'page'), $custom_post_types);
+
+    // Obtener todos los posts y paginas publicadas
     $posts = get_posts(array(
         'numberposts' => -1,
-        'post_type' => array('post', 'page'),
+        'post_type' => $post_types,
         'post_status' => 'publish'
     ));
 
     $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
 
     foreach ($posts as $post) {
+        // Verificar si el post tiene la etiqueta noindex
         $post_content = get_post_field('post_content', $post->ID);
-        if (strpos($post_content, 'noindex') !== false) { // Verifica si el post tiene la meta etiqueta noindex
+        if (strpos($post_content, 'noindex') !== false) {
             continue;
         }
 
-        // noindex con los plugins SEO mas usados
+        // Verificar si el post tiene configurado noindex en plugins SEO populares
         $yoast_noindex = get_post_meta($post->ID, '_yoast_wpseo_meta-robots-noindex', true);
         $aioseo_noindex = get_post_meta($post->ID, '_aioseo_noindex', true);
         $rankmath_noindex = get_post_meta($post->ID, 'rank_math_robots', true);
@@ -105,4 +117,5 @@ function vantag_generate_sitemap() {
 
     $xml->asXML(ABSPATH . 'sitemap.xml');
 }
+
 ?>
