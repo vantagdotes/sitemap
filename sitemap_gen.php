@@ -13,7 +13,7 @@
  * Text Domain:       sitemap-gen
  */
 
-defined('ABSPATH') or die('You shouldn\'t be here...');
+defined('ABSPATH') or die('Exit...');
 
 function vantag_sitemapgen_menu() {
     add_submenu_page(
@@ -51,12 +51,11 @@ function vantag_sitemapgen_page() {
         $xml = simplexml_load_file($sitemap_path);
         echo '<h2>Sitemap</h2>';
         echo '<table class="widefat fixed" cellspacing="0">';
-        echo '<thead><tr><th>URL</th><th>Date of modification</th></tr></thead>';
+        echo '<thead><tr><th>URL</th></tr></thead>';
         echo '<tbody>';
         foreach ($xml->url as $url) {
             echo '<tr>';
             echo '<td><a href="' . esc_url($url->loc) . '" target="_blank">' . esc_html($url->loc) . '</a></td>';
-            echo '<td>' . esc_html(gmdate('H:i | d-m-Y', strtotime($url->lastmod))) . '</td>';
             echo '</tr>';
         }
         echo '</tbody>';
@@ -105,6 +104,20 @@ function blocked_robotstxt($url) {
     return false; // La URL no está bloqueada
 }
 
+function get_final_redirected_url($url) {
+    $response = wp_remote_get($url, ['redirection' => 5]);
+    if (is_wp_error($response)) {
+        return $url; // Si hay un error, retorna la URL original
+    }
+
+    $redirected_url = wp_remote_retrieve_header($response, 'location');
+    if (!empty($redirected_url)) {
+        return get_final_redirected_url($redirected_url); // Recursión para seguir la cadena de redirecciones
+    }
+
+    return $url; // Si no hay redirección, retorna la URL final
+}
+
 function vantag_generate_sitemap() {
     $args = array(
         'public'   => true,
@@ -136,11 +149,15 @@ function vantag_generate_sitemap() {
             continue;
         }
 
+        // Obtener la URL final redirigida
         $post_url = get_permalink($post->ID);
-        if (!blocked_robotstxt($post_url)) {
+        $final_url = get_final_redirected_url($post_url);
+
+        // Verificar si la URL está bloqueada por robots.txt
+        if (!blocked_robotstxt($final_url)) {
             $url = $xml->addChild('url');
-            $url->addChild('loc', $post_url);
-            $url->addChild('lastmod', get_the_modified_time('c', $post->ID));
+            $url->addChild('loc', $final_url);
+            $url->addChild('changefreq', 'daily');
         }
     }
 
