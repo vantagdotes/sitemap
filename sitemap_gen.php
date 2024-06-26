@@ -1,6 +1,6 @@
 <?php
 /*
- * Plugin Name:       Multilingual Sitemap generator
+ * Plugin Name:       Multilingual Sitemap Generator
  * Plugin URI:        https://github.com/vantagdotes/
  * Description:       Multilingual Sitemap generator, which solves the problems of Yoast SEO compatibility plugins with Loco Translate, WPML, Polylang, etc.
  * Version:           1.0
@@ -28,23 +28,16 @@ function vantag_sitemapgen_menu() {
 add_action('admin_menu', 'vantag_sitemapgen_menu');
 
 function vantag_sitemapgen_page() {
-    
-    //Si se pulsa el boton, generar sitemap.xml en la raiz del proyecto
     if (isset($_POST['generate_sitemap'])) {
-    
-        // Verificar nonce
-    if ( !isset($_POST['generate_sitemap_nonce_field']) || !wp_verify_nonce($_POST['generate_sitemap_nonce_field'], 'generate_sitemap_nonce') ) {
-        die('Security error. Please go back and try again.');
-    }
-
+        if (!isset($_POST['generate_sitemap_nonce_field']) || !wp_verify_nonce($_POST['generate_sitemap_nonce_field'], 'generate_sitemap_nonce')) {
+            die('Security error. Please go back and try again.');
+        }
         vantag_generate_sitemap();
-        echo '<div class="updated"><p>Sitemap successfully generated.<a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank">View sitemap</a></p></div>';
+        echo '<div class="updated"><p>Sitemap successfully generated. <a href="' . esc_url(home_url('/sitemap.xml')) . '" target="_blank">View sitemap</a></p></div>';
     }
     ?>
     <div class="wrap">
         <h1>Sitemap Generator</h1>
-
-        <!--generar sitemap-->
         <form method="post">
             <?php wp_nonce_field('generate_sitemap_nonce', 'generate_sitemap_nonce_field'); ?>
             <p>Click the button to generate the sitemap.</p>
@@ -53,7 +46,6 @@ function vantag_sitemapgen_page() {
     </div>
     <?php
 
-    // Si la web tiene sitemap, mostrarlo por pantalla
     $sitemap_path = ABSPATH . 'sitemap.xml';
     if (file_exists($sitemap_path)) {
         $xml = simplexml_load_file($sitemap_path);
@@ -64,13 +56,13 @@ function vantag_sitemapgen_page() {
         foreach ($xml->url as $url) {
             echo '<tr>';
             echo '<td><a href="' . esc_url($url->loc) . '" target="_blank">' . esc_html($url->loc) . '</a></td>';
-            echo '<td>' . esc_html( gmdate( 'H:i | d-m-Y' ) ) . '</td>';
+            echo '<td>' . esc_html(gmdate('H:i | d-m-Y', strtotime($url->lastmod))) . '</td>';
             echo '</tr>';
         }
         echo '</tbody>';
         echo '</table>';
     } else {
-        echo '<p>An existing Sitemap was not found. Please generate a new one.</p>'; // Si no tiene sitemap
+        echo '<p>An existing Sitemap was not found. Please generate a new one.</p>';
     }
 }
 
@@ -84,11 +76,12 @@ function blocked_robotstxt($url) {
     $robots_txt_body = wp_remote_retrieve_body($robots_txt);
     $parsed_url = parse_url($url);
     $path = isset($parsed_url['path']) ? $parsed_url['path'] : '';
+    $query = isset($parsed_url['query']) ? '?' . $parsed_url['query'] : '';
 
     $lines = explode("\n", $robots_txt_body);
-    $user_agent = '*'; // Las reglas aplican para todos los useragents
-
+    $user_agent = '*';
     $disallow_paths = [];
+
     foreach ($lines as $line) {
         $line = trim($line);
         if (stripos($line, 'User-agent:') === 0) {
@@ -103,7 +96,8 @@ function blocked_robotstxt($url) {
     }
 
     foreach ($disallow_paths as $disallow_path) {
-        if (stripos($path, $disallow_path) === 0) {
+        $disallow_regex = '#^' . str_replace(['*', '?'], ['.*', '\?'], $disallow_path) . '#';
+        if (preg_match($disallow_regex, $path . $query)) {
             return true; // La URL está bloqueada por robots.txt
         }
     }
@@ -111,19 +105,15 @@ function blocked_robotstxt($url) {
     return false; // La URL no está bloqueada
 }
 
-
 function vantag_generate_sitemap() {
-    // Obtener todos los CPT públicos
     $args = array(
         'public'   => true,
         '_builtin' => false
     );
     $custom_post_types = get_post_types($args, 'names', 'and');
 
-    // Añadir 'post' y 'page'
     $post_types = array_merge(array('post', 'page'), $custom_post_types);
 
-    // Obtener todos los posts y paginas publicadas
     $posts = get_posts(array(
         'numberposts' => -1,
         'post_type' => $post_types,
@@ -133,13 +123,11 @@ function vantag_generate_sitemap() {
     $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
 
     foreach ($posts as $post) {
-        // Verificar si el post tiene la etiqueta noindex
         $post_content = get_post_field('post_content', $post->ID);
         if (strpos($post_content, 'noindex') !== false) {
             continue;
         }
 
-        // Verificar si el post tiene configurado noindex en plugins SEO populares
         $yoast_noindex = get_post_meta($post->ID, '_yoast_wpseo_meta-robots-noindex', true);
         $aioseo_noindex = get_post_meta($post->ID, '_aioseo_noindex', true);
         $rankmath_noindex = get_post_meta($post->ID, 'rank_math_robots', true);
@@ -148,18 +136,14 @@ function vantag_generate_sitemap() {
             continue;
         }
 
-        // Verificar si la URL está bloqueada por robots.txt
         $post_url = get_permalink($post->ID);
-        if (blocked_robotstxt($post_url)) {
-            continue;
+        if (!blocked_robotstxt($post_url)) {
+            $url = $xml->addChild('url');
+            $url->addChild('loc', $post_url);
+            $url->addChild('lastmod', get_the_modified_time('c', $post->ID));
         }
-
-        $url = $xml->addChild('url');
-        $url->addChild('loc', $post_url);
-        $url->addChild('lastmod', get_the_modified_time('c', $post->ID));
     }
 
     $xml->asXML(ABSPATH . 'sitemap.xml');
 }
-
 ?>
